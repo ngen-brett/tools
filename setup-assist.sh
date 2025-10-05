@@ -5,19 +5,45 @@ USER="assist"
 SSH_KEY_URL="https://raw.githubusercontent.com/ngen-brett/tools/refs/heads/main/keys/id_ed25519_assist.pub"
 SUDOERS_FILE="/etc/sudoers.d/${USER}"
 
-# Detect package manager and firewall tool
-if   command -v dnf   &>/dev/null; then PM="dnf"
-elif command -v yum   &>/dev/null; then PM="yum"
-elif command -v apt   &>/dev/null; then PM="apt"
-elif command -v zypper&>/dev/null; then PM="zypper"
-else echo "Unsupported distro: no known package manager" >&2; exit 1; fi
+# Detect package manager
+if   command -v dnf    &>/dev/null; then PM="dnf"
+elif command -v yum    &>/dev/null; then PM="yum"
+elif command -v apt    &>/dev/null; then PM="apt"
+elif command -v zypper &>/dev/null; then PM="zypper"
+else
+  echo "Unsupported distro: no known package manager" >&2
+  exit 1
+fi
+
+# Install sudo if needed
+if ! command -v sudo &>/dev/null; then
+  case "$PM" in
+    dnf|yum)
+      $PM install -y sudo
+      ;;
+    apt)
+      apt update
+      apt install -y sudo
+      ;;
+    zypper)
+      zypper install -y sudo
+      ;;
+  esac
+fi
 
 # Install openssh-server if needed
 if ! command -v sshd &>/dev/null; then
   case "$PM" in
-    dnf|yum)   $PM install -y openssh-server ;;
-    apt)       apt update; apt install -y openssh-server ;;
-    zypper)    zypper install -y openssh ;;
+    dnf|yum)
+      $PM install -y openssh-server
+      ;;
+    apt)
+      apt update
+      apt install -y openssh-server
+      ;;
+    zypper)
+      zypper install -y openssh
+      ;;
   esac
 fi
 
