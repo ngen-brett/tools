@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Must run as root
+if [[ $EUID -ne 0 ]]; then
+  echo "This script must be run as root" >&2
+  exit 1
+fi
+
 USER="assist"
 SSH_KEY_URL="https://raw.githubusercontent.com/ngen-brett/tools/refs/heads/main/keys/id_ed25519_assist.pub"
 SUDOERS_FILE="/etc/sudoers.d/${USER}"
@@ -65,7 +71,7 @@ chmod 600 "$AUTHORIZED_KEYS"
 
 # Enable and start SSH service
 systemctl enable sshd
-systemctl start  sshd
+systemctl start sshd
 
 # Configure firewall: allow ssh
 if command -v firewall-cmd &>/dev/null; then
@@ -75,18 +81,18 @@ elif command -v ufw &>/dev/null; then
   ufw allow OpenSSH
   ufw reload
 else
-  # Fallback to iptables
   if command -v iptables &>/dev/null; then
     iptables -C INPUT -p tcp --dport 22 -j ACCEPT 2>/dev/null || \
       iptables -I INPUT -p tcp --dport 22 -j ACCEPT
-    # Save rules if persistent is available
     command -v netfilter-persistent &>/dev/null && netfilter-persistent save
   fi
 fi
 
-# Grant sudo NOPASSWD
-echo "${USER} ALL=(ALL) NOPASSWD:ALL" > "$SUDOERS_FILE"
-chmod 440 "$SUDOERS_FILE"
+# Grant sudo NOPASSWD for the assist user
+echo "${USER} ALL=(ALL) NOPASSWD:ALL" | sudo tee "${SUDOERS_FILE}" > /dev/null
+chmod 0440 "${SUDOERS_FILE}"
+# Validate sudoers syntax
+visudo -cf "${SUDOERS_FILE}"
 
 # Display IPv4 and IPv6 for default route interface
 DEFAULT_DEV=$(ip route show default 2>/dev/null | awk '{print $5; exit}')
